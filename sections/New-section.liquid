@@ -1,0 +1,825 @@
+<script src="{{ 'flexbox-custom.js' | asset_url }}" defer="defer"></script>
+
+{%- style -%}
+  .section-{{ section.id }}-padding {
+    padding-top: {{ section.settings.padding_top | times: 0.75 | round: 0 }}px;
+    padding-bottom: {{ section.settings.padding_bottom | times: 0.75 | round: 0 }}px;
+    padding-left:0;
+    padding-right:0;
+  }
+  @media screen and (min-width: 750px) {
+    .section-{{ section.id }}-padding {
+      padding-top: {{ section.settings.padding_top }}px;
+      padding-bottom: {{ section.settings.padding_bottom }}px;
+    }
+  }
+{%- endstyle -%}
+
+<div class="page-width section-{{ section.id }}-padding">
+  <div class="collection__title title-wrapper title-wrapper--no-top-margin">
+    {%- if section.settings.title != blank -%}
+      <h2 class="title inline-richtext {{ section.settings.heading_size }}">
+        {{ section.settings.title }}
+      </h2>
+    {%- endif -%}
+  </div>
+
+  <div class="bundle-container">
+    <!-- ========== LEFT: PRODUCT GRID ========== -->
+    <div class="bundle-products" id="bundleProductsGrid">
+      {% for block in section.blocks %}
+        {% assign collection = collections[block.settings.home_featured_products] %}
+        {% for product in collection.products %}
+          {% assign variant = product.selected_or_first_available_variant %}
+
+          {% comment %} Robust sold out check — handles multi-location + backorder policy {% endcomment %}
+          {% assign is_sold_out = false %}
+          {% unless variant.available %}
+            {% assign is_sold_out = true %}
+          {% endunless %}
+          {% if variant.inventory_quantity <= 0 and variant.inventory_policy == 'deny' %}
+            {% assign is_sold_out = true %}
+          {% endif %}
+
+          <div
+            data-id="{{ variant.id }}"
+            data-price="{{ variant.price }}"
+            data-title="{{ product.title | escape }}"
+            class="cookie-card{% if is_sold_out %} sold-out{% endif %}"
+          >
+            <div style="position: relative;">
+              <img src="{{ product.featured_media | img_url: 'master' }}" loading="lazy" alt="{{ product.title | escape }}" width="100%" height="auto">
+              {% if is_sold_out %}
+                <span class="sold-out-badge">Sold Out</span>
+              {% endif %}
+            </div>
+            <h4 class="card__heading">{{ product.title | escape }}</h4>
+            <span class="price">{{ variant.price | money }}</span>
+            <button class="add-btn" type="button"{% if is_sold_out %} disabled{% endif %}>
+              {% if is_sold_out %}Sold Out{% else %}Add to box{% endif %}
+            </button>
+          </div>
+        {% endfor %}
+      {% endfor %}
+    </div>
+
+    <!-- ========== RIGHT: BUNDLE BOX ========== -->
+    <div class="bundle-box" data-currency-symbol="{{ cart.currency.symbol }}" data-currency-iso="{{ cart.currency.iso_code }}">
+      <div class="bundle-header">
+        <div class="bundle-title">
+          <h2>{{ section.settings.title1 | default: 'My Bundle' }}</h2>
+          <div>{{ section.settings.text1 | default: 'UP TO 50% OFF' }}</div>
+        </div>
+        <div class="bundle-actions">
+          <button class="clear" type="button">Clear all</button>
+          <button class="bundle-toggle" type="button" aria-expanded="true">▼</button>
+        </div>
+      </div>
+
+      <!-- DISCOUNT BAR MODULE -->
+      <div class="discount-module">
+        <div class="discount-header">
+          <span>Bundle discount</span>
+          <span class="discount-badge">
+            <span class="discount-percent">0%</span> OFF
+          </span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-fill" id="discountProgressFill" style="width: 0%;"></div>
+        </div>
+        <div class="discount-hint">
+          3 items → 30% &nbsp;|&nbsp; 4 items → 40% &nbsp;|&nbsp; 5+ items → 50%
+        </div>
+        <div id="dynamicOfferMessage" class="dynamic-offer-message"></div>
+      </div>
+
+      <!-- SELECTED ITEMS LIST -->
+      <div class="bundle-items-list">
+        <div id="bundleItemsContainer" class="bundle-items-container">
+          <div class="empty-message">No items added yet</div>
+        </div>
+      </div>
+
+      <!-- FOOTER -->
+      <div class="bundle-footer">
+        <div class="total-wrapper">
+          <span>Total</span>
+          <strong class="total">0.00</strong>
+        </div>
+        <button class="cart-btn disabled" disabled>Add to cart</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% schema %}
+{
+  "name": "Flexbox Bundle",
+  "tag": "section",
+  "class": "section",
+  "disabled_on": {
+    "groups": ["header", "footer"]
+  },
+  "settings": [
+    {
+      "type": "text",
+      "id": "title1",
+      "label": "Bundle Box Title",
+      "default": "My Bundle"
+    },
+    {
+      "type": "richtext",
+      "id": "text1",
+      "label": "Bundle Subtext",
+      "default": "<p>UP TO 50% OFF</p>"
+    },
+    {
+      "type": "header",
+      "content": "Section Heading"
+    },
+    {
+      "type": "inline_richtext",
+      "id": "title",
+      "default": "Build your own box",
+      "label": "Title"
+    },
+    {
+      "type": "select",
+      "id": "heading_size",
+      "options": [
+        { "value": "h2", "label": "Small" },
+        { "value": "h1", "label": "Medium" },
+        { "value": "h0", "label": "Large" },
+        { "value": "hxl", "label": "Extra large" }
+      ],
+      "default": "h1",
+      "label": "Heading size"
+    },
+    {
+      "type": "header",
+      "content": "Padding"
+    },
+    {
+      "type": "range",
+      "id": "padding_top",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding top",
+      "default": 36
+    },
+    {
+      "type": "range",
+      "id": "padding_bottom",
+      "min": 0,
+      "max": 100,
+      "step": 4,
+      "unit": "px",
+      "label": "Padding bottom",
+      "default": 36
+    }
+  ],
+  "blocks": [
+    {
+      "type": "collection",
+      "name": "Collection",
+      "settings": [
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Collection label (optional)"
+        },
+        {
+          "type": "collection",
+          "id": "home_featured_products",
+          "label": "Choose collection"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Flexbox Bundle"
+    }
+  ]
+}
+{% endschema %}
+
+<script>
+  (function() {
+    let items = [];
+    let resizeDebounceTimer = null;
+
+    const productsGrid = document.getElementById("bundleProductsGrid");
+    const itemsContainer = document.getElementById("bundleItemsContainer");
+    const totalEl = document.querySelector(".total");
+    const cartBtn = document.querySelector(".cart-btn");
+    const clearBtn = document.querySelector(".clear");
+    const bundleBox = document.querySelector(".bundle-box");
+    const toggleBtn = document.querySelector(".bundle-toggle");
+    const discountPercentSpan = document.querySelector(".discount-percent");
+    const progressFill = document.getElementById("discountProgressFill");
+    const dynamicMessageEl = document.getElementById("dynamicOfferMessage");
+
+    const currencyISOCode = bundleBox ? bundleBox.dataset.currencyIso : 'INR';
+
+    function formatMoney(cents) {
+      const amount = cents / 100;
+      return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency: currencyISOCode,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(amount);
+    }
+
+    function getDiscountPercent(count) {
+      if (count >= 5) return 50;
+      if (count === 4) return 40;
+      if (count === 3) return 30;
+      return 0;
+    }
+
+    function getDiscountedPrice(originalCents, discountRate) {
+      return originalCents * (1 - discountRate / 100);
+    }
+
+    function updateDynamicMessage(currentCount) {
+      if (!dynamicMessageEl) return;
+      let message = '';
+      if (currentCount >= 5) {
+        message = "You've unlocked 50% off!";
+      } else if (currentCount === 4) {
+        message = 'Add 1 more item and get 50% off!';
+      } else if (currentCount === 3) {
+        message = 'Add 1 more item and get 40% off!';
+      } else if (currentCount === 2) {
+        message = 'Add 1 more item and get 30% off!';
+      } else if (currentCount === 1) {
+        message = 'Add 2 more items to get 30% off!';
+      } else {
+        message = 'Add 3 items to get 30% off!';
+      }
+      dynamicMessageEl.textContent = message;
+    }
+
+    function updateDiscountBar(percent, count) {
+      if (!progressFill) return;
+      const targetWidth = Math.min((count / 5) * 100, 100);
+      requestAnimationFrame(() => {
+      progressFill.style.width = targetWidth + '%';
+      });
+      if (discountPercentSpan) discountPercentSpan.innerText = percent + '%';
+    }
+
+    function renderBundle() {
+      const discountRate = getDiscountPercent(items.length);
+      updateDiscountBar(discountRate, items.length);
+      updateDynamicMessage(items.length);
+
+      if (!itemsContainer) return;
+
+      if (items.length === 0) {
+        itemsContainer.innerHTML = `<div class="empty-message">No items added yet</div>`;
+        totalEl.innerText = formatMoney(0);
+        cartBtn.disabled = true;
+        cartBtn.classList.add("disabled");
+        cartBtn.innerText = "Add to cart";
+        updateMobileSpacing();
+        return;
+      }
+
+      let html = '';
+      let totalCents = 0;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const discPrice = getDiscountedPrice(item.price, discountRate);
+        totalCents += discPrice;
+        html += `
+          <div class="bundle-item" data-index="${i}">
+            <div class="bundle-item-info">
+              <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.title)}" class="bundle-item-img">
+              <div class="bundle-item-details">
+                <div class="bundle-item-title">${escapeHtml(item.title)}</div>
+               <div class="bundle-item-price">
+              <span class="current-price">${formatMoney(discPrice)}</span>
+              <span class="compare-price">${formatMoney(item.price)}</span>
+            </div>
+              </div>
+            </div>
+            <button class="remove-item-btn" data-index="${i}">Remove</button>
+          </div>
+        `;
+      }
+      itemsContainer.innerHTML = html;
+      totalEl.innerText = formatMoney(totalCents);
+
+      cartBtn.disabled = false;
+      cartBtn.classList.remove("disabled");
+      cartBtn.innerText = "Add to cart";
+      updateMobileSpacing();
+    }
+
+    function updateMobileSpacing() {
+      if (window.innerWidth <= 768 && bundleBox) {
+        const height = bundleBox.offsetHeight;
+        document.documentElement.style.setProperty("--bundle-box-h", height + "px");
+      }
+    }
+
+    function addItem(card) {
+      // Guard: do not add sold-out cards
+      if (card.classList.contains("sold-out")) return;
+
+      const id = card.getAttribute("data-id");
+      const priceRaw = card.getAttribute("data-price");
+      const title = card.getAttribute("data-title") || "Product";
+      const img = card.querySelector("img")?.src || "";
+      if (!id || !priceRaw) return;
+      const price = parseInt(priceRaw, 10);
+      if (isNaN(price)) return;
+      items.push({ id, price, title, image: img });
+      renderBundle();
+      if (window.innerWidth <= 768 && bundleBox?.classList.contains("collapsed")) {
+        expandBox();
+      }
+    }
+
+    function removeItem(index) {
+      if (index >= 0 && index < items.length) {
+        items.splice(index, 1);
+        renderBundle();
+        if (items.length === 0 && window.innerWidth <= 768) collapseBox();
+      }
+    }
+
+    function clearBundle() {
+      items = [];
+      renderBundle();
+      if (window.innerWidth <= 768) collapseBox();
+    }
+
+    function collapseBox() {
+      if (!bundleBox) return;
+      bundleBox.classList.add("collapsed");
+      if (toggleBtn) {
+        toggleBtn.setAttribute("aria-expanded", "false");
+        toggleBtn.innerText = "▲";
+      }
+      updateMobileSpacing();
+    }
+
+    function expandBox() {
+      if (!bundleBox) return;
+      bundleBox.classList.remove("collapsed");
+      if (toggleBtn) {
+        toggleBtn.setAttribute("aria-expanded", "true");
+        toggleBtn.innerText = "▼";
+      }
+      updateMobileSpacing();
+    }
+
+    function toggleMobile() {
+      if (bundleBox.classList.contains("collapsed")) expandBox();
+      else collapseBox();
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/[&<>]/g, function(m) {
+        if (m === '&') return '&amp;';
+        if (m === '<') return '&lt;';
+        if (m === '>') return '&gt;';
+        return m;
+      });
+    }
+
+    if (productsGrid) {
+      productsGrid.addEventListener("click", (e) => {
+        const addBtn = e.target.closest(".add-btn");
+        if (addBtn && !addBtn.disabled) {
+          const card = addBtn.closest(".cookie-card");
+          if (card) addItem(card);
+        }
+      });
+    }
+
+    if (itemsContainer) {
+      itemsContainer.addEventListener("click", (e) => {
+        const removeBtn = e.target.closest(".remove-item-btn");
+        if (removeBtn && removeBtn.dataset.index !== undefined) {
+          const idx = parseInt(removeBtn.dataset.index, 10);
+          if (!isNaN(idx)) removeItem(idx);
+        }
+      });
+    }
+
+    if (clearBtn) clearBtn.addEventListener("click", clearBundle);
+    if (toggleBtn) toggleBtn.addEventListener("click", toggleMobile);
+
+    if (cartBtn) {
+      cartBtn.addEventListener("click", async () => {
+        if (items.length === 0) return;
+
+        const discountRate = getDiscountPercent(items.length);
+
+        const lineItems = items
+          .map(item => ({
+            id: parseInt(item.id, 10),
+            quantity: 1,
+            properties: {
+              "_bundle_item": "true",
+              "_bundle_discount": `${discountRate}% OFF`
+            }
+          }))
+          .filter(item => !isNaN(item.id) && item.id > 0);
+
+        if (lineItems.length === 0) {
+          alert("No valid products selected. Please try again.");
+          return;
+        }
+
+        cartBtn.innerText = "Adding...";
+        cartBtn.disabled = true;
+
+        try {
+          const response = await fetch('/cart/add.js', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+              items: lineItems,
+              attributes: {
+                "bundle_builder": "flexbox_bundle",
+                "bundle_discount": `${discountRate}%`
+              }
+            })
+          });
+
+          const data = await response.json();
+
+          if (response.ok && data.items) {
+            window.location.href = "/cart";
+          } else {
+            const errorMsg = data.description || data.message || "Could not add to cart. Please try again.";
+            console.error("Cart add error:", data);
+            alert(errorMsg);
+            cartBtn.disabled = false;
+            cartBtn.innerText = "Add to cart";
+          }
+        } catch (err) {
+          console.error("Cart fetch error:", err);
+          alert("Error adding to cart. Please check your connection and try again.");
+          cartBtn.disabled = false;
+          cartBtn.innerText = "Add to cart";
+        }
+      });
+    }
+
+    function handleResize() {
+      if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
+      resizeDebounceTimer = setTimeout(() => {
+        if (window.innerWidth <= 768) {
+          updateMobileSpacing();
+        } else {
+          expandBox();
+          document.documentElement.style.setProperty("--bundle-box-h", "auto");
+        }
+      }, 100);
+    }
+
+    window.addEventListener("resize", handleResize);
+
+    renderBundle();
+    if (window.innerWidth <= 768) collapseBox();
+    else expandBox();
+    handleResize();
+  })();
+</script>
+
+<style>
+  body {
+    background: #f5f5f5;
+  }
+  .page-width {
+    background: transparent;
+  }
+  .bundle-container {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 28px;
+    align-items: start;
+    contain: layout style;
+  }
+  .bundle-products {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 18px;
+  }
+
+  .cookie-card {
+    background: #ffffff;
+    border: 1px solid #eaeaea;
+    border-radius: 20px;
+    padding: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02), 0 2px 4px rgba(0,0,0,0.02);
+  }
+  .cookie-card img {
+    width: 100%;
+    aspect-ratio: 1;
+    object-fit: cover;
+    border-radius: 14px;
+    background: #f0f0f0;
+  }
+  .card__heading {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 12px 0 6px;
+    color: #1e1e1e;
+  }
+  .price {
+    font-weight: 700;
+    color: black;
+    font-size: 15px;
+  }
+
+  .add-btn {
+    background: #1a1a1a;
+    border: none;
+    width: 100%;
+    padding: 10px;
+    border-radius: 40px;
+    font-weight: 600;
+    margin-top: 12px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    color: #ffffff;
+    letter-spacing: 0.3px;
+  }
+  .add-btn:active { transform: scale(0.97); }
+  .add-btn:hover { background: #2c2c2c; }
+
+  /* ── Sold Out States ── */
+  .cookie-card.sold-out {
+    opacity: 0.75;
+  }
+  .cookie-card.sold-out img {
+    filter: grayscale(40%);
+  }
+  .sold-out-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: #1a1a1a;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 30px;
+    letter-spacing: 0.4px;
+    pointer-events: none;
+  }
+  .add-btn:disabled {
+    background: #cccccc;
+    color: #888888;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .add-btn:disabled:hover {
+    background: #cccccc;
+  }
+
+  .bundle-box {
+    background: #ffffff;
+    border: 1px solid #eaeaea;
+    border-radius: 28px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    transition: max-height 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    will-change: max-height;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  }
+  .bundle-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+  .bundle-title h2 {
+    font-size: 1.4rem;
+    margin: 0 0 4px;
+    color: #1e1e1e;
+  }
+  .bundle-title div {
+    font-size: 12px;
+    color: #6c6c6c;
+  }
+  .bundle-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .clear, .bundle-toggle {
+    background: transparent;
+    border: 1px solid #ddd;
+    color: #555;
+    padding: 5px 12px;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: border-color 0.2s, color 0.2s;
+  }
+  .clear:hover, .bundle-toggle:hover {
+    border-color: #c9a96e;
+    color: #c9a96e;
+  }
+
+  .discount-module {
+    background: #fafafa;
+    border-radius: 20px;
+    padding: 12px;
+    border: 1px solid #eeeeee;
+  }
+  .discount-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: #1e1e1e;
+  }
+  .discount-badge {
+    background: rgba(0, 0, 0, 0.08);
+    padding: 4px 8px;
+    border-radius: 30px;
+    color: black;
+  }
+  .progress-bar-bg {
+    background: #e0e0e0;
+    border-radius: 40px;
+    height: 8px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    display: block !important;
+    background: linear-gradient(90deg, #000000ff, #000000ff);
+    width: 0%;
+    height: 100%;
+    border-radius: 40px;
+    transition: width 0.2s ease-out;
+  }
+  .discount-hint {
+    font-size: 10px;
+    color: #777;
+    margin-top: 8px;
+  }
+  .dynamic-offer-message {
+    font-size: 12px;
+    font-weight: 600;
+    margin-top: 10px;
+    text-align: center;
+    color: black;
+    background: rgba(0, 0, 0, 0.08);
+    padding: 6px 10px;
+    border-radius: 30px;
+    transition: all 0.2s;
+  }
+
+  .bundle-items-list {
+    max-height: 280px;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+  }
+  .bundle-item {
+    display: grid;
+    grid-template-columns: 2fr 1fr 0px;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .bundle-item-info {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .bundle-item-img {
+    width: 70px;
+    height: 70px;
+    object-fit: cover;
+    border-radius: 12px;
+    background: #f5f5f5;
+    flex-shrink: 0;
+  }
+  .bundle-item-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #2c2c2c;
+  }
+  .bundle-item-price {
+    display: flex;
+    flex-direction: column;
+  }
+  .current-price {
+    font-weight: 700;
+    color: black;
+    font-size: 14px;
+  }
+  .compare-price {
+    font-size: 11px;
+    text-decoration: line-through;
+    color: #aaa;
+  }
+  .remove-item-btn {
+    background: transparent;
+    border: 1px solid black;
+    color: black;
+    padding: 4px 8px;
+    border-radius: 30px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .remove-item-btn:hover {
+    background: rgba(201,169,110,0.1);
+  }
+  .empty-message {
+    text-align: center;
+    color: #aaa;
+    padding: 30px 0;
+  }
+
+  .bundle-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #ececec;
+    padding-top: 16px;
+  }
+  .total-wrapper {
+    font-size: 16px;
+    color: #2c2c2c;
+  }
+  .total {
+    font-size: 22px;
+    color: #1e1e1e;
+    margin-left: 8px;
+    font-weight: 700;
+  }
+  .cart-btn {
+    background: #1a1a1a;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 40px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    color: #ffffff;
+  }
+  .cart-btn:active { transform: scale(0.97); }
+  .cart-btn:hover { background: #2c2c2c; }
+  .cart-btn.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  @media (max-width: 768px) {
+    .bundle-container {
+      grid-template-columns: 1fr;
+      gap: 28px;
+      padding-bottom: calc(var(--bundle-box-h, 150px) + 20px);
+    }
+    .bundle-box {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      border-radius: 28px 28px 0 0;
+      transition: max-height 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+      max-height: 70vh;
+    }
+    .bundle-box.collapsed {
+      max-height: 100px;
+      overflow: hidden;
+    }
+    .bundle-box.collapsed .bundle-items-list,
+    .bundle-box.collapsed .discount-module,
+    .bundle-box.collapsed .bundle-footer {
+      display: none;
+    }
+    .bundle-item {
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
+    .bundle-item-price {
+      flex-direction: row;
+      gap: 8px;
+      align-items: center;
+    }
+    .remove-item-btn {
+      grid-column: 2;
+    }
+  }
+</style>
